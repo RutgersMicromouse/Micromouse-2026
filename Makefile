@@ -12,7 +12,7 @@ INCLUDE = -I chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Include \
 STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/startup_stm32g070xx.s
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
-OBJS = main.o syscalls.o sysmem.o startup.o system.o
+OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o
 SUS = syscalls.su sysmem.su system.su main.su
 TARGET = micromouse.elf
 
@@ -29,6 +29,8 @@ syscalls.o: Src/syscalls.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/syscalls.c -o syscalls.o
 sysmem.o: Src/sysmem.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/sysmem.c -o sysmem.o
+i2c.o: Src/driver/i2c.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/i2c.c -o i2c.o
 
 startup.o: $(STARTUP)
 	$(CC) $(CFLAGS) -c $(STARTUP) -o startup.o
