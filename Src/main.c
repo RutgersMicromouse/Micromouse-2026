@@ -5,8 +5,10 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include "stm32g0xx.h"
 #include "i2c.h"
+#include "uart.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -20,8 +22,25 @@
 
 #define GPIOC_MODE ~(3 << 26)
 #define GPIOA5 (1U << 5)
+
+extern volatile uint8_t dma_transfer_complete;
+
+int _write(int file, char *ptr, int len)
+{
+	(void)file;
+	if (len == 0) return 0;
+	while (!dma_transfer_complete);  // Wait for previous transfer to complete
+	dma_transfer_complete = 0;  // Reset flag for next transfer
+	dma1_transmit((uint32_t)ptr, (uint32_t)len);
+	while (!dma_transfer_complete); // Wait for current transfer to complete
+	return len;
+}
+
 int main(void)
 {
+	uart2_tx_init();
+	dma1_channel1_init();
+	printf("Hello, World!\n\r");
 	/**
 	 * In order to use GPIO (and other peripherals), we need to enable clock access
 	 * to the GPIO peripherals
