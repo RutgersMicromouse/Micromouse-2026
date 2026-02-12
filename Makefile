@@ -13,7 +13,7 @@ STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/st
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
 OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o
-SUS = syscalls.su sysmem.su system.su main.su
+SUS = syscalls.su sysmem.su system.su main.su i2c.su
 TARGET = micromouse.elf
 
 .PHONY: all clean flash
