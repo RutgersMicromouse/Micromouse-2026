@@ -12,34 +12,40 @@ INCLUDE = -I chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Include \
 STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/startup_stm32g070xx.s
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
-OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o
-SUS = syscalls.su sysmem.su system.su main.su i2c.su
+SRC_DIR = Src
+BUILD_DIR = build
+
+# Automatically find all .c files in Src directory (recursively)
+SRCS = $(shell find $(SRC_DIR) -name '*.c')
+
+# New version: preserves subpaths (e.g., Src/driver/i2c.c -> build/Src/driver/i2c.o)
+OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o) # $(BUILD_DIR)/startup.o $(BUILD_DIR)/system.o
+
+# Generate .su file names
+SUS = $(addprefix $(BUILD_DIR)/,$(notdir $(SRCS:.c=.su))) $(BUILD_DIR)/system.su
 TARGET = micromouse.elf
 
 .PHONY: all clean flash
 
-all: $(TARGET)
+all: $(BUILD_DIR) $(TARGET)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-main.o: Src/main.c
-	$(CC) $(CFLAGS) $(INCLUDE) -c Src/main.c -o main.o
-syscalls.o: Src/syscalls.c
-	$(CC) $(CFLAGS) $(INCLUDE) -c Src/syscalls.c -o syscalls.o
-sysmem.o: Src/sysmem.c
-	$(CC) $(CFLAGS) $(INCLUDE) -c Src/sysmem.c -o sysmem.o
-i2c.o: Src/driver/i2c.c
-	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/i2c.c -o i2c.o
 
-startup.o: $(STARTUP)
-	$(CC) $(CFLAGS) -c $(STARTUP) -o startup.o
-
-system.o: $(SYSTEM)
-	$(CC) $(CFLAGS) $(INCLUDE) -c $(SYSTEM) -o system.o
+# Pattern rules for compiling .c files from nested directories
+$(BUILD_DIR)/$(SRC_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+$(BUILD_DIR)/startup.o: $(STARTUP)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $(STARTUP) -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(SUS)
+	rm -rf $(BUILD_DIR) $(TARGET)
 
 flash: $(TARGET)
 	openocd -f interface/stlink.cfg -f target/stm32g0x.cfg -c "program $(TARGET) verify reset exit"
