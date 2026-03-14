@@ -29,7 +29,10 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
+#include <stdint.h>
 
+/* custom includes */
+#include "uart.h"
 
 /* Variables */
 extern int __io_putchar(int ch) __attribute__((weak));
@@ -80,12 +83,19 @@ __attribute__((weak)) int _read(int file, char *ptr, int len)
 __attribute__((weak)) int _write(int file, char *ptr, int len)
 {
   (void)file;
-  int DataIdx;
-
-  for (DataIdx = 0; DataIdx < len; DataIdx++)
+  if (len <= 0)
   {
-    __io_putchar(*ptr++);
+    if (len < 0)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+    return 0;
   }
+  while (!dma_transfer_complete);  // Wait for previous transfer to complete
+  dma_transfer_complete = 0;  // Reset flag for next transfer
+  dma1_transmit((uint32_t)(uintptr_t)ptr, (uint32_t)len);
+  while (!dma_transfer_complete); // Wait for current transfer to complete
   return len;
 }
 

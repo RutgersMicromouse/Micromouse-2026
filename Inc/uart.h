@@ -14,4 +14,7 @@ void dma1_transmit(uint32_t src, uint32_t len);
 #define SR_RXNE			(1U<<5)
 #define HISR_TCIF6		(1U<<21)
 #define HIFCR_CTCIF6    (1U<<21)
+
+/* USART DMA variables */
+extern volatile uint8_t dma_transfer_complete;
 #endif /* UART_H_ */
