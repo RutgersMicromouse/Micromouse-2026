@@ -1,3 +1,7 @@
 [submodule "chip_headers"]
 	path = chip_headers
 	url = https://github.com/STMicroelectronics/STM32CubeG0.git
+[submodule "Src/maze"]
+	path = Src/maze
+	url = https://github.com/RutgersMicromouse/maze-algorithm.git
+	branch = release/stm32maze

@@ -5,8 +5,7 @@ Small firmware project for the Micromouse platform (STM32G0 series).
 **Prerequisites:**
 - Toolchain: `arm-none-eabi-gcc` (and related binutils/openocd).
 
-**Get headers (submodule)**: the repository expects ST's device headers and drivers in `chip_headers`.
-Run from the repo root:
+**Get chip headers and maze code (submodule)**: The repository requires ST’s device headers and drivers in chip_headers, along with the maze code in Src/maze. Run the following from the repository root:
 
 ```bash
 git submodule update --init --recursive
