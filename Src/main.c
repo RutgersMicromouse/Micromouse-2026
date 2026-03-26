@@ -6,9 +6,10 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "stm32g0xx.h"
+#include "stm32g070xx.h"
 #include "i2c.h"
 #include "uart.h"
+#include "timer.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -40,6 +41,7 @@ int main(void)
 {
 	uart2_tx_init();
 	dma1_channel1_init();
+	init_encoder_tim1();
 	printf("Hello, World!\n\r");
 	/**
 	 * In order to use GPIO (and other peripherals), we need to enable clock access
@@ -69,5 +71,9 @@ int main(void)
 		} else {
 			GPIOA->ODR &= ~GPIOA5;
 		}
+
+		/* motor encoder code */
+		uint16_t encoder_position = read_encoder_position();
+		printf("Encoder Position: %u\n\r", (unsigned int)encoder_position);
 	}
 }
