@@ -47,7 +47,16 @@ int main(void)
 	 */
 	RCC->IOPENR |= GPIOA_EN;
 	RCC->IOPENR |= GPIOC_EN;
-
+	init_i2c();
+	while(1){
+		uint8_t val;
+		i2c_result res = i2cread(0x28, 0x03, &val);
+		if (res == i2c_success) {
+			printf("Read from BNO055: 0x%02X\n\r", val);
+		} else {
+			printf("I2C read error: %s\n\r", i2ctostr(res));
+		}
+	}
 	/**
 	 * Here, we define the pinmode: Input, Output, Alternate function etc.
 	 */
