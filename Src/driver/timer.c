@@ -32,6 +32,11 @@ void init_encoder_tim1(void)
     TIM1->CR1 |= TIM_CR1_CEN;
 }
 
+void init_timer(void)
+{
+    init_encoder_tim1();
+}
+
 uint16_t read_encoder_position(void)
 {
     // The hardware automatically updates this register based on rotation
