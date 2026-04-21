@@ -8,7 +8,7 @@
 
 #include "imu.h"
 #include "motors.h"
-#include "frontdist.h"
+#include "tof.h"
 #include "ioexpander.h"
 
 // use PID to drive forward in mm
