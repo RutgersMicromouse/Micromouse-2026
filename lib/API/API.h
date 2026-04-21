@@ -8,7 +8,7 @@
 // define physical libraries if real
 #ifdef REAL
 
-#include "frontdist.h"
+#include "tof.h"
 #include "pidrotate.h"
 #include "pidstraight.h"
 #include "imu.h"
