@@ -16,10 +16,15 @@
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
 
+#define GPIOA_EN (1U << 0)
+#define GPIOC_EN (1U << 2)
+
 #define GPIOA_EN   (1U << 0)
 #define GPIOA_MODE (1U << 10)
 #define GPIOA_MASK ~(1U << 11)
-#define GPIOA5     (1U << 5)
+
+#define GPIOC_MODE ~(3 << 26)
+#define GPIOA5 (1U << 5)
 
 extern volatile uint8_t dma_transfer_complete;
 
@@ -43,18 +48,37 @@ void initialize_system(void)
 
 int main(void)
 {
-    initialize_system();
+	initialize_system();
     printf("System Initialized\r\n");
+	/**
+	 * In order to use GPIO (and other peripherals), we need to enable clock access
+	 * to the GPIO peripherals
+	 */
+	RCC->IOPENR |= GPIOA_EN;
+	RCC->IOPENR |= GPIOC_EN;
 
-    /* Enable clock and configure GPIOA5 as output (not handled in gpio_init) */
-    RCC->IOPENR |= GPIOA_EN;
-    GPIOA->MODER |= GPIOA_MODE;
-    GPIOA->MODER &= GPIOA_MASK;
+	/**
+	 * Here, we define the pinmode: Input, Output, Alternate function etc.
+	 */
+	GPIOA->MODER |= GPIOA_MODE;
+	GPIOA->MODER &= GPIOA_MASK;
 
-    for (;;) {
+	/* GPIOC configuration */
+	GPIOC->MODER &= GPIOC_MODE; //configure c13 as output
+	GPIOC->PUPDR &= ~(3U << 26); //ensure no pull up or pull down
 
-		printf("hello\n\r");
-        /* Debounce: wait 50ms, then wait for release */
-        delay_ms(1000);
-    }
+	/* Loop forever */
+	for (;;) {
+		/**
+		 * PC13 has a pull up resistor, so it'll be active high when the button isn't pressed.
+		 */
+		int result = GPIOC->IDR & (1U << 13); //IDR contains the input values of GPIOC (Input Data Register)
+		if (result) {
+			GPIOA->ODR |= GPIOA5; //ODR contains the output values of GPIOA (Output Data Register)
+		} else {
+			GPIOA->ODR &= ~GPIOA5;
+		}
+		printf("Hello\n\r");
+		delay_ms(1000);
+	}
 }
