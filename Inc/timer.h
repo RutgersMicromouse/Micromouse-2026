@@ -2,7 +2,16 @@
 #define TIMER_H
 
 #include <stdint.h>
-void init_timer(void);
-uint16_t read_encoder_position(void);
 
-#endif /* TIMER_H */
+/**
+ * @brief Initialize TIM3 for a 1ms tick
+ */
+void timer_init(void);
+
+/**
+ * @brief Get the current tick count (ms)
+ * @return uint32_t current ticks
+ */
+uint32_t timer_get_tick(void);
+
+#endif

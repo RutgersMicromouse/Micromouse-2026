@@ -1,44 +1,43 @@
 #include "timer.h"
 #include "stm32g070xx.h"
 
-void init_encoder_tim1(void)
+static volatile uint32_t ms_ticks = 0;
+
+void timer_init(void)
 {
-    /* 1. Enable Clocks */
-    RCC->IOPENR |= RCC_IOPENR_GPIOAEN;    // Enable GPIOA clock
-    RCC->APBENR2 |= RCC_APBENR2_TIM1EN;   // Enable TIM1 clock
+    /* Enable TIM3 clock */
+    RCC->APBENR1 |= RCC_APBENR1_TIM3EN;
+    (void)RCC->APBENR1; // Dummy read
 
-    /* 2. Configure PA8 and PA9 to Alternate Function 2 (TIM1_CH1 & CH2) */
-    // Clear mode bits and set to Alternate Function (10)
-    GPIOA->MODER &= ~(GPIO_MODER_MODE8 | GPIO_MODER_MODE9);
-    GPIOA->MODER |= (GPIO_MODER_MODE8_1 | GPIO_MODER_MODE9_1);
-    
-    // Select AF2 for PA8 and PA9 in the Alternate Function High Register (AFRH)
-	GPIOA->AFR[1] &= ~(GPIO_AFRH_AFSEL8 | GPIO_AFRH_AFSEL9);
-	GPIOA->AFR[1] |= (2U << GPIO_AFRH_AFSEL8_Pos) | (2U << GPIO_AFRH_AFSEL9_Pos);
+    /*
+     * SystemCoreClock is 16MHz by default.
+     * To get 1ms tick:
+     * PSC = 1600 - 1  => timer frequency = 16MHz / 1600 = 10kHz
+     * ARR = 10 - 1    => interrupt frequency = 10kHz / 10 = 1kHz (1ms)
+     */
+    TIM3->PSC = 1600 - 1;
+    TIM3->ARR = 10 - 1;
 
-    /* 3. Configure TIM1 for Encoder Mode 3 */
-    // Map IC1 to TI1 (CC1S=01) and IC2 to TI2 (CC2S=01)
-    TIM1->CCMR1 = (1U << TIM_CCMR1_CC1S_Pos) | (1U << TIM_CCMR1_CC2S_Pos); 
-    
-    // Set Slave Mode Controller to Encoder Mode 3 (SMS=011)
-    // This counts on both TI1 and TI2 edges for maximum resolution
-    TIM1->SMCR = (TIM1->SMCR & ~TIM_SMCR_SMS_Msk) | (3U << TIM_SMCR_SMS_Pos);
-    
-    // Set Auto-Reload to maximum (16-bit)
-    TIM1->ARR = 0xFFFF;
+    /* Enable Update Interrupt */
+    TIM3->DIER |= TIM_DIER_UIE;
 
-    /* 4. Reset counter and start the timer */
-    TIM1->CNT = 0;
-    TIM1->CR1 |= TIM_CR1_CEN;
+    /* Enable TIM3 */
+    TIM3->CR1 |= TIM_CR1_CEN;
+
+    /* Enable TIM3 IRQ in NVIC */
+    NVIC_SetPriority(TIM3_IRQn, 3);
+    NVIC_EnableIRQ(TIM3_IRQn);
 }
 
-void init_timer(void)
+uint32_t timer_get_tick(void)
 {
-    init_encoder_tim1();
+    return ms_ticks;
 }
 
-uint16_t read_encoder_position(void)
+void TIM3_IRQHandler(void)
 {
-    // The hardware automatically updates this register based on rotation
-    return TIM1->CNT; 
+    if (TIM3->SR & TIM_SR_UIF) {
+        TIM3->SR &= ~TIM_SR_UIF; // Clear update interrupt flag
+        ms_ticks++;
+    }
 }
