@@ -17,14 +17,14 @@ void pidForward(double distance) {
     double goal_distance = TICKS_PER_ROTATION * distance /( WHEEL_DIAM * PI); // Converts mm -> encoder ticks
     // goal_distance *= 1.10;
     encLeft.write(0); encRight.write(0); // Reset encoder position
-
+    Serial.print(goal_distance);
     // Find the closest world angle axis
     double goal_angle;
     int closest_index = 0; // index of the closest world angle 
     double arr_diag[8]; // distances from current angle to world angles
-    
+    Serial.println("Test 0.5");
     for (int i = 0; i <= 7; i++) {
-
+        Serial.println(i);
         arr_diag[i] = identity_diag[i] - angle();
 
         // angle wrapping
@@ -36,6 +36,7 @@ void pidForward(double distance) {
             closest_index = i;
         }  
     }    
+    Serial.print("STEP .75");
     goal_angle = identity_diag[closest_index];
 
     Serial.print("Goal angle: ");
@@ -43,7 +44,7 @@ void pidForward(double distance) {
 
     // All of the variables we need for PID
     double t_old = micros();
-
+    Serial.print("STEP 1");
     double error_dist_left = goal_distance; double error_int_dist_left; double error_deriv_dist_left;
     double error_dist_left_old = error_dist_left;
 
@@ -51,6 +52,7 @@ void pidForward(double distance) {
     double error_dist_right_old = error_dist_right; 
     
     double error_angle = goal_angle - angle();
+    Serial.print("STEP 2");
     // angle wrapping
     if (error_angle > 180) error_angle -= 360;
     if (error_angle < -180) error_angle += 360;
@@ -61,13 +63,13 @@ void pidForward(double distance) {
     double distOutLeft;
     double distOutRight;
     double angleOut;
-
+    Serial.print("STEP 3");
     // sampling to check for motor stalling
     double sampleTime = micros();
     double sampleRight = encRight.read();
     double sampleLeft = encLeft.read();
     
-    
+    Serial.print("STEP 4");
     while (true) {
     
         // Guard Clauses:
@@ -83,7 +85,7 @@ void pidForward(double distance) {
             sampleRight = encRight.read();
             sampleLeft = encLeft.read();
         }
-
+        
         // 3. Too close to the front wall
         if(front() < 90) { setRightPWM(0); setLeftPWM(0); return; }
 
@@ -91,8 +93,9 @@ void pidForward(double distance) {
         error_dist_left = goal_distance - encLeft.read(); 
         error_dist_right = goal_distance - encRight.read(); 
         error_angle = goal_angle - angle();
+        
         // angle wrapping
-        if (error_angle > 180) error_angle -= 360;
+        if (error_angle > 10) error_angle -= 360;
         if (error_angle < -180) error_angle += 360;
         
         // I error

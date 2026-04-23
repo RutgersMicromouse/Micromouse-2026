@@ -44,8 +44,6 @@ void initialize() {
 
 
 #ifdef REAL
-    EEPROM.begin(EEPROM_SIZE);
-
     // if switch is on, load the maze from EEPROM
     if(isLoad()) {
         loadMazeFromEEPROM(maze);
@@ -96,7 +94,6 @@ void saveMazeToEEPROM(char maze[N][N]) {
             EEPROM.write(i * N + j, maze[i][j]);
 	    }
     }
-	EEPROM.commit(); // a full commitment's what I'm thinking of
 }
 
 void loadMazeFromEEPROM(char maze[N][N]) {
@@ -114,7 +111,6 @@ void saveWallsToEEPROM(openCells walls[N][N]) {
             EEPROM.write(index, (walls[i][j].openN) | (walls[i][j].openS << 1) | (walls[i][j].openE << 2) | (walls[i][j].openW << 3) | (walls[i][j].visited << 4));
         }
 	}
-	EEPROM.commit(); // a full commitment's what I'm thinking of
 }
 
 void loadWallsFromEEPROM(openCells walls[N][N]) {

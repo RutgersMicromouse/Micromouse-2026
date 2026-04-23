@@ -14,20 +14,22 @@ void imuSetup() {
 }
 
 double angle() {
+  static double lastYaw = 0;
+  Serial.println("Angle 1");
   if (bno.getSensorEvent(&sensorValue)) {
+    Serial.println("Angle 2");
     if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
-
       float qw = sensorValue.un.rotationVector.real;
       float qx = sensorValue.un.rotationVector.i;
       float qy = sensorValue.un.rotationVector.j;
       float qz = sensorValue.un.rotationVector.k;
 
-      // Convert quaternion → yaw
       double yaw = atan2(2.0 * (qw*qz + qx*qy),
                          1.0 - 2.0 * (qy*qy + qz*qz));
 
-      return yaw * 180.0 / PI;
+      lastYaw = yaw * 180.0 / PI;
     }
   }
-  return 0;
+  Serial.println("Angle 3");
+  return lastYaw;
 }
