@@ -9,6 +9,7 @@
 #include "stm32g0xx.h"
 #include "i2c.h"
 #include "uart.h"
+#include "sensor.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -58,8 +59,22 @@ int main(void)
 	GPIOC->MODER &= GPIOC_MODE; //configure c13 as output
 	GPIOC->PUPDR &= ~(3U << 26); //ensure no pull up or pull down
 
+	/* Initialize sensors */
+	init_sensors();
+
+	uint32_t left_dist = 0;
+	uint32_t right_dist = 0;
+
 	/* Loop forever */
 	for (;;) {
+		/* Fetch sensor distances */
+		left_dist = get_left_distance();
+		right_dist = get_right_distance();
+
+		/* Prevent unused variable warnings */
+		(void)left_dist;
+		(void)right_dist;
+		printf("distance: %lu, %lu\n\r",left_dist, right_dist);
 		/**
 		 * PC13 has a pull up resistor, so it'll be active high when the button isn't pressed.
 		 */
