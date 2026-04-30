@@ -70,4 +70,6 @@ int main(void)
 			GPIOA->ODR &= ~GPIOA5;
 		}
 	}
+
+	printf("Atharv is stinky lol");
 }
