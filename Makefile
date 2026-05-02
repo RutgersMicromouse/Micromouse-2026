@@ -12,8 +12,8 @@ INCLUDE = -I chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Include \
 STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/startup_stm32g070xx.s
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
-OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o sensor.o
-SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su sensor.su
+OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o sensor.o motor.o
+SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su sensor.su motor.su
 TARGET = micromouse.elf
 
 .PHONY: all clean flash
@@ -35,6 +35,8 @@ uart.o: Src/driver/uart.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/uart.c -o uart.o
 sensor.o: Src/driver/sensor.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/sensor.c -o sensor.o
+motor.o: Src/driver/motor.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/motor.c -o motor.o
 startup.o: $(STARTUP)
 	$(CC) $(CFLAGS) -c $(STARTUP) -o startup.o
 
@@ -42,7 +44,7 @@ system.o: $(SYSTEM)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $(SYSTEM) -o system.o
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(SUS)
+	rm -f *.o $(TARGET) *.su
 
 flash: $(TARGET)
 	openocd -f interface/stlink.cfg -f target/stm32g0x.cfg -c "program $(TARGET) verify reset exit"
