@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include <VL53L4CD.h>
 
-// Teensy 4.0 Pins
 #define PIN_FRONT_XSHUT 2
 #define PIN_LEFT_XSHUT  3
 #define PIN_RIGHT_XSHUT 4
@@ -15,58 +14,60 @@ int16_t frontLast = -1;
 int16_t leftLast  = -1;
 int16_t rightLast = -1;
 
-void tofSetup() {
-    // 1. Force all sensors into hardware reset (LOW)
-    pinMode(PIN_FRONT_XSHUT, OUTPUT);
-    pinMode(PIN_LEFT_XSHUT, OUTPUT);
-    pinMode(PIN_RIGHT_XSHUT, OUTPUT);
-    
-    digitalWrite(PIN_FRONT_XSHUT, LOW);
-    digitalWrite(PIN_LEFT_XSHUT, LOW);
-    digitalWrite(PIN_RIGHT_XSHUT, LOW);
-    delay(50); 
+static void initSensor(VL53L4CD &sensor, uint8_t address, const char* name) {
+    sensor.setBus(&Wire);
+    sensor.setTimeout(500);
 
-    Wire.begin();
-    Wire.setClock(400000); 
+    // Read model ID registers before init
+    uint8_t id_high = sensor.readReg(0x010F);
+    uint8_t id_low  = sensor.readReg(0x0110);
+    Serial.print(name); Serial.print(" Model ID: 0x");
+    Serial.print(id_high, HEX);
+    Serial.println(id_low, HEX);
 
-    // 2. Wake and Init Front
-    digitalWrite(PIN_FRONT_XSHUT, HIGH);
-    delay(10);
-    tofFront.setBus(&Wire);
-    if (tofFront.init()) {
-        tofFront.setAddress(0x30);
-        tofFront.startContinuous();
-    }
+    bool ok = sensor.init();
+    Serial.print(name); Serial.print(" init: "); Serial.println(ok);
 
-    // 3. Wake and Init Left
-    digitalWrite(PIN_LEFT_XSHUT, HIGH);
-    delay(10);
-    tofLeft.setBus(&Wire);
-    if (tofLeft.init()) {
-        tofLeft.setAddress(0x32);
-        tofLeft.startContinuous();
-    }
-
-    // 4. Wake and Init Right
-    digitalWrite(PIN_RIGHT_XSHUT, HIGH);
-    delay(10);
-    tofRight.setBus(&Wire);
-    if (tofRight.init()) {
-        tofRight.setAddress(0x34);
-        tofRight.startContinuous();
+    if (ok) {
+        sensor.setAddress(address);
+        sensor.startContinuous();
+        Serial.print(name); Serial.println(" OK");
+    } else {
+        Serial.print(name); Serial.print(" FAILED, last_status: ");
+        Serial.println(sensor.last_status);
     }
 }
 
+void tofSetup() {
+    pinMode(PIN_FRONT_XSHUT, OUTPUT);
+    pinMode(PIN_LEFT_XSHUT, OUTPUT);
+    pinMode(PIN_RIGHT_XSHUT, OUTPUT);
+
+    digitalWrite(PIN_FRONT_XSHUT, LOW);
+    digitalWrite(PIN_LEFT_XSHUT, LOW);
+    digitalWrite(PIN_RIGHT_XSHUT, LOW);
+    delay(100);
+
+    digitalWrite(PIN_FRONT_XSHUT, HIGH);
+    delay(100);
+    initSensor(tofFront, 0x30, "Front");
+
+    digitalWrite(PIN_LEFT_XSHUT, HIGH);
+    delay(100);
+    initSensor(tofLeft, 0x32, "Left");
+
+    digitalWrite(PIN_RIGHT_XSHUT, HIGH);
+    delay(100);
+    initSensor(tofRight, 0x34, "Right");
+}
+
 int16_t readSensor(VL53L4CD &sensor, int16_t &last) {
-    // read() is the standard Pololu method
-    uint16_t dist = sensor.read();
-    
-    if (!sensor.timeoutOccurred()) {
-        last = (int16_t)dist;
+    if (sensor.dataReady()) {
+        last = (int16_t)sensor.read(false);
     }
     return last;
 }
 
 int16_t front() { return readSensor(tofFront, frontLast); }
-int16_t left()  { return readSensor(tofLeft, leftLast); }
+int16_t left()  { return readSensor(tofLeft,  leftLast);  }
 int16_t right() { return readSensor(tofRight, rightLast); }
