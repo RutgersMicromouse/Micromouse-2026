@@ -3,8 +3,8 @@
 MotoronI2C mc;
 
 // Teensy 4.0 handles these pins automatically with interrupts
-Encoder encLeft(1, 2);
-Encoder encRight(3, 4);
+Encoder encLeft(14, 15);
+Encoder encRight(16, 17);
 
 void motorSetup() {
     mc.reinitialize();
@@ -14,6 +14,10 @@ void motorSetup() {
     // Note: With the PaulStoffregen/Encoder library, you do NOT 
     // need attachInterrupt() or manual update functions. 
     // It works automatically on Pins 1,2,3,4.
+    mc.setMaxAcceleration(1, 200);
+    mc.setMaxAcceleration(2, 200);  // was 1, now 2
+    mc.setMaxDeceleration(1, 200);
+    mc.setMaxDeceleration(2, 200);  // was 1, now 2
 }
 
 // These are no longer needed for the Encoder library, 
@@ -26,5 +30,5 @@ void setLeftPWM(int PWM) {
 }
 
 void setRightPWM(int PWM) {
-    mc.setSpeed(2, -PWM);
+    mc.setSpeed(2, PWM);
 }
