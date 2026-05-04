@@ -10,6 +10,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "sensor.h"
+#include "vl6180x.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -58,23 +59,37 @@ int main(void)
 	/* GPIOC configuration */
 	GPIOC->MODER &= GPIOC_MODE; //configure c13 as output
 	GPIOC->PUPDR &= ~(3U << 26); //ensure no pull up or pull down
+	init_i2c();
 
+	i2c_scan();
+	while(1);
 	/* Initialize sensors */
 	init_sensors();
-
+	// if (vl6180x_init() != i2c_success) {
+	// 	printf("VL6180X initialization failed!\n\r");
+	// } else {
+	// 	printf("Sensors initialized\n\r");
+	// }
+	// while(1);
 	uint32_t left_dist = 0;
 	uint32_t right_dist = 0;
-
+	uint8_t front_dist = 0;
 	/* Loop forever */
 	for (;;) {
 		/* Fetch sensor distances */
-		left_dist = get_left_distance();
-		right_dist = get_right_distance();
-
+		// left_dist = get_left_distance();
+		// right_dist = get_right_distance();
+		// printf("Reading vl6180x sensor\n\r");
+		i2c_result res = (uint32_t)vl6180x_read_distance(&front_dist);
+		if(res != i2c_success) {
+			printf("Failed: %s\n\r",i2ctostr(res));
+			continue;
+		}
 		/* Prevent unused variable warnings */
 		(void)left_dist;
 		(void)right_dist;
-		printf("distance: %lu, %lu\n\r",left_dist, right_dist);
+		(void)front_dist;
+		printf("distance: %lu, %lu. front:  %lu\n\r",left_dist, right_dist, (uint32_t)front_dist);
 		/**
 		 * PC13 has a pull up resistor, so it'll be active high when the button isn't pressed.
 		 */

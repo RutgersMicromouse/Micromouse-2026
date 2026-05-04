@@ -7,6 +7,7 @@
 #include "i2c.h"
 #include "stm32g070xx.h"
 #include <stdint.h>
+#include <stdio.h>
 
 #define I2C2EN (1U << 22)
 #define GPIOBEN (1U << 1)
@@ -99,6 +100,54 @@ void init_i2c(void)
 }
 
 /**
+ * @brief Checks if a device at the specified address is ready.
+ * @param slave_addr The 7-bit address of the I2C slave device.
+ * @return i2c_result indicating success if device responded, error otherwise.
+ */
+i2c_result i2c_is_device_ready(uint8_t slave_addr)
+{
+	uint32_t timeout = I2C_TIMEOUT;
+
+	/* Configure for 0-byte write operation to check for ACK */
+	I2C2->CR2 = (slave_addr << 1) | (0 << 16) | I2C_CR2_AUTOEND | I2C_CR2_START;
+
+	/* Wait for STOPF (device ACKed and transaction finished) or NACKF */
+	while (!(I2C2->ISR & I2C_ISR_STOPF)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF; // Clear NACK flag
+			/* Wait for STOPF after NACK */
+			while (!(I2C2->ISR & I2C_ISR_STOPF));
+			I2C2->ICR = I2C_ICR_STOPCF; // Clear STOP flag
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+
+	I2C2->ICR = I2C_ICR_STOPCF; // Clear STOP flag
+	return i2c_success;
+}
+
+/**
+ * @brief Scans the I2C bus for devices and prints found addresses.
+ */
+void i2c_scan()
+{
+	printf("Scanning I2C bus...\n\r");
+	int count = 0;
+	for (uint8_t addr = 1; addr < 128; addr++) {
+		if (i2c_is_device_ready(addr) == i2c_success) {
+			printf("Found device at 0x%02X\n\r", addr);
+			count++;
+		}
+	}
+	if (count == 0) {
+		printf("No I2C devices found.\n\r");
+	} else {
+		printf("Scan complete. %d devices found.\n\r", count);
+	}
+}
+
+/**
  * @brief Reads a byte from a specified register of an I2C slave device.
  * @param slave_address The 7-bit address of the I2C slave device.
  * @param reg_address The register address to read from.
@@ -114,8 +163,11 @@ i2c_result i2cread(uint8_t slave_address, uint8_t reg_address, uint8_t* val)
 
 	/* Wait for TXIS (Transmit register empty) */
 	while (!(I2C2->ISR & I2C_ISR_TXIS)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
 	}
 
 	I2C2->TXDR = reg_address; // Send Register Address
@@ -123,8 +175,11 @@ i2c_result i2cread(uint8_t slave_address, uint8_t reg_address, uint8_t* val)
 	/* Wait for Transfer Complete (TC) */
 	timeout = I2C_TIMEOUT;
 	while (!(I2C2->ISR & I2C_ISR_TC)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
 	}
 
 	/* Configure for read operation */
@@ -133,20 +188,89 @@ i2c_result i2cread(uint8_t slave_address, uint8_t reg_address, uint8_t* val)
 	/* Wait for data ready */
 	timeout = I2C_TIMEOUT;
 	while (!(I2C2->ISR & I2C_ISR_RXNE)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
 	}
 	uint8_t data = (uint8_t)I2C2->RXDR; // Read Data
 
 	/* Wait for Stop */
 	timeout = I2C_TIMEOUT;
 	while (!(I2C2->ISR & I2C_ISR_STOPF)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (--timeout == 0) return i2c_timeout;
 	}
 	I2C2->ICR = I2C_ICR_STOPCF; // Clear Stop Flag
 
 	*val = data;
+	return i2c_success;
+}
+
+/**
+ * @brief Reads a byte from a specified 16-bit register of an I2C slave device.
+ * @param slave_addr The 7-bit address of the I2C slave device.
+ * @param reg_addr The 16-bit register address to read from.
+ * @param val Pointer to store the read byte.
+ * @return i2c_result indicating success or type of error.
+ */
+i2c_result i2cread16(uint8_t slave_addr, uint16_t reg_addr, uint8_t* val)
+{
+	/* Configure for write operation - send 2-byte register address */
+	I2C2->CR2 = (slave_addr << 1) | (2 << 16) | I2C_CR2_START;
+	uint32_t timeout = I2C_TIMEOUT;
+
+	/* Wait for TXIS and write MSB */
+	while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+	I2C2->TXDR = (uint8_t)(reg_addr >> 8);
+
+	/* Wait for TXIS and write LSB */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+	I2C2->TXDR = (uint8_t)(reg_addr & 0xFF);
+
+	/* Wait for Transfer Complete (TC) */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_TC)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+
+	/* Configure for read operation - 1 byte */
+	I2C2->CR2 = (slave_addr << 1) | (1 << 16) | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND | I2C_CR2_START;
+
+	/* Wait for data ready */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_RXNE)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+	*val = (uint8_t)I2C2->RXDR;
+
+	/* Wait for Stop */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_STOPF)) {
+		if (--timeout == 0) return i2c_timeout;
+	}
+	I2C2->ICR = I2C_ICR_STOPCF;
 	return i2c_success;
 }
 
@@ -164,25 +288,163 @@ i2c_result i2cwrite(uint8_t slave_addr, uint8_t reg_addr, uint8_t data)
     // 2. Send Register Address
     uint32_t timeout = I2C_TIMEOUT;
     while (!(I2C2->ISR & I2C_ISR_TXIS)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
 	}
     I2C2->TXDR = reg_addr;
 
     // 3. Send Data
     timeout = I2C_TIMEOUT;
     while (!(I2C2->ISR & I2C_ISR_TXIS)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
 	}
     I2C2->TXDR = data;
 
     // 4. Wait for Stop
     timeout = I2C_TIMEOUT;
     while (!(I2C2->ISR & I2C_ISR_STOPF)) {
-		timeout--;
-		if (timeout == 0) return i2c_timeout;
+		if (--timeout == 0) return i2c_timeout;
 	}
     I2C2->ICR = I2C_ICR_STOPCF; // Clear Stop Flag
     return i2c_success;
+}
+
+/**
+ * @brief Writes a byte to a specified 16-bit register of an I2C slave device.
+ * @param slave_addr The 7-bit address of the I2C slave device.
+ * @param reg_addr The 16-bit register address to write to.
+ * @param data The byte to write.
+ * @return i2c_result indicating success or type of error.
+ */
+i2c_result i2cwrite16(uint8_t slave_addr, uint16_t reg_addr, uint8_t data)
+{
+    // Configure CR2: Write 3 bytes (2 bytes for reg_addr + 1 byte for data)
+    I2C2->CR2 = (slave_addr << 1) | (3 << 16) | I2C_CR2_AUTOEND | I2C_CR2_START;
+    
+    uint32_t timeout = I2C_TIMEOUT;
+    // Send MSB of reg_addr
+    while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+    I2C2->TXDR = (uint8_t)(reg_addr >> 8);
+
+    // Send LSB of reg_addr
+    timeout = I2C_TIMEOUT;
+    while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+    I2C2->TXDR = (uint8_t)(reg_addr & 0xFF);
+
+    // Send Data
+    timeout = I2C_TIMEOUT;
+    while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		if (I2C2->ISR & I2C_ISR_NACKF) {
+			I2C2->ICR = I2C_ICR_NACKCF;
+			return i2c_error;
+		}
+		if (--timeout == 0) return i2c_timeout;
+	}
+    I2C2->TXDR = data;
+
+    // Wait for Stop
+    timeout = I2C_TIMEOUT;
+    while (!(I2C2->ISR & I2C_ISR_STOPF)) {
+		if (--timeout == 0) return i2c_timeout;
+	}
+    I2C2->ICR = I2C_ICR_STOPCF;
+    return i2c_success;
+}
+
+/**
+ * @brief Reads 2 bytes from a 16-bit register address using I2Cx.
+ * @param I2Cx Pointer to I2C peripheral (e.g., I2C1, I2C2).
+ * @param dev_addr The 7-bit slave address.
+ * @param reg_addr The 16-bit register address.
+ * @return The 16-bit value read (MSB first).
+ */
+uint16_t I2C_Read16(I2C_TypeDef *I2Cx, uint8_t dev_addr, uint16_t reg_addr)
+{
+    uint8_t msb, lsb;
+
+    // =========================================================
+    // PHASE 1: Write the 16-bit register address
+    // =========================================================
+    
+    // Configure CR2: Slave Address, NBYTES = 2, Write (RD_WRN = 0), START = 1, AUTOEND = 0
+    I2Cx->CR2 = (dev_addr << 1) | (2 << I2C_CR2_NBYTES_Pos) | I2C_CR2_START;
+
+    // Wait for TXIS (Transmit Interrupt Status) and write the MSB of the register address
+    while (!(I2Cx->ISR & I2C_ISR_TXIS)) {
+        if (I2Cx->ISR & I2C_ISR_NACKF) {
+            I2Cx->ICR = I2C_ICR_NACKCF;
+            return 0xFFFF;
+        }
+    }
+    I2Cx->TXDR = (uint8_t)(reg_addr >> 8);
+
+    // Wait for TXIS again and write the LSB of the register address
+    while (!(I2Cx->ISR & I2C_ISR_TXIS)) {
+        if (I2Cx->ISR & I2C_ISR_NACKF) {
+            I2Cx->ICR = I2C_ICR_NACKCF;
+            return 0xFFFF;
+        }
+    }
+    I2Cx->TXDR = (uint8_t)(reg_addr & 0xFF);
+
+    // Wait for Transfer Complete (TC) flag
+    while (!(I2Cx->ISR & I2C_ISR_TC)) {
+        if (I2Cx->ISR & I2C_ISR_NACKF) {
+            I2Cx->ICR = I2C_ICR_NACKCF;
+            return 0xFFFF;
+        }
+    }
+
+    // =========================================================
+    // PHASE 2: Read the 2-byte data payload
+    // =========================================================
+    
+    // Configure CR2: Slave Address, NBYTES = 2, Read (RD_WRN = 1), START = 1, AUTOEND = 1
+    I2Cx->CR2 = (dev_addr << 1) | (2 << I2C_CR2_NBYTES_Pos) | I2C_CR2_RD_WRN | I2C_CR2_START | I2C_CR2_AUTOEND;
+
+    // Wait until Receive Data Register Not Empty (RXNE) flag goes high and read MSB
+    while (!(I2Cx->ISR & I2C_ISR_RXNE)) {
+        if (I2Cx->ISR & I2C_ISR_NACKF) {
+            I2Cx->ICR = I2C_ICR_NACKCF;
+            return 0xFFFF;
+        }
+    }
+    msb = I2Cx->RXDR;
+
+    // Wait for RXNE again and read LSB
+    while (!(I2Cx->ISR & I2C_ISR_RXNE)) {
+        if (I2Cx->ISR & I2C_ISR_NACKF) {
+            I2Cx->ICR = I2C_ICR_NACKCF;
+            return 0xFFFF;
+        }
+    }
+    lsb = I2Cx->RXDR;
+
+    // Wait for the STOP flag (STOPF) to confirm the transaction has finished completely
+    while (!(I2Cx->ISR & I2C_ISR_STOPF)) {}
+
+    // Clear the STOP flag by writing to the Interrupt Clear Register (ICR)
+    I2Cx->ICR = I2C_ICR_STOPCF;
+
+    // Combine the two 8-bit bytes into a single 16-bit value (MSB first)
+    return ((uint16_t)msb << 8) | lsb;
 }

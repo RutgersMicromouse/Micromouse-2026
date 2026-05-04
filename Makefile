@@ -12,8 +12,8 @@ INCLUDE = -I chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Include \
 STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/startup_stm32g070xx.s
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
-OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o sensor.o
-SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su sensor.su
+OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o sensor.o vl6180x.o
+SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su sensor.su vl6180x.su
 TARGET = micromouse.elf
 
 .PHONY: all clean flash
@@ -35,6 +35,9 @@ uart.o: Src/driver/uart.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/uart.c -o uart.o
 sensor.o: Src/driver/sensor.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/sensor.c -o sensor.o
+vl6180x.o: Src/driver/vl6180x.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/vl6180x.c -o vl6180x.o
+
 startup.o: $(STARTUP)
 	$(CC) $(CFLAGS) -c $(STARTUP) -o startup.o
 
