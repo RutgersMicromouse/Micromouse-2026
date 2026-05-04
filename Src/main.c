@@ -10,6 +10,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "sensor.h"
+#include "motor.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -62,6 +63,9 @@ int main(void)
 	/* Initialize sensors */
 	init_sensors();
 
+	/* Initialize motors */
+	motor_init();
+	printf("motor driver initialized\n\r");
 	uint32_t left_dist = 0;
 	uint32_t right_dist = 0;
 
@@ -75,6 +79,11 @@ int main(void)
 		(void)left_dist;
 		(void)right_dist;
 		printf("distance: %lu, %lu\n\r",left_dist, right_dist);
+
+		/* Drive motors forward at low speed */
+		motor_a_drive(0);
+		motor_b_drive(0);
+
 		/**
 		 * PC13 has a pull up resistor, so it'll be active high when the button isn't pressed.
 		 */
