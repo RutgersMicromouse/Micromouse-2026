@@ -8,12 +8,15 @@
 #include "stm32g070xx.h"
 #include <stdint.h>
 
+#define I2C1EN (1U << 21)
 #define I2C2EN (1U << 22)
 #define GPIOBEN (1U << 1)
-#define I2C2_SCL (6U << 20)
-#define I2C2_SDA (6U << 24)
-#define OTYPERVAL (3U << 13)
-#define I2CSPEED (0xAU << 26)
+#define I2C1_SCL (6U << 24)
+#define I2C1_SDA (6U << 28)
+#define I2C2_SCL (6U << 8)
+#define I2C2_SDA (6U << 12)
+#define OTYPERVAL ((3U << 6) | (3U << 10))
+#define I2CSPEED ((0xAU << 12) | (0xAU << 20))
 #define I2CPRESC (1U << 28)
 #define I2CSCLL (0x9U)
 #define I2CSCLH (0x3U << 8)
@@ -30,71 +33,84 @@ const char* myerrarray[3] = {
 };
 
 /**
- * @brief Initializes the I2C2 peripheral and configures GPIO pins PB13 and PB14 for I2C functionality.
+ * @brief Initializes the I2C1 and I2C2 peripherals and configures GPIO pins PB6, PB7, PB10, and PB11 for I2C functionality.
  * This function enables the necessary clocks, sets up the GPIO pins for alternate function,
- * configures the I2C timing parameters, and enables the I2C2 peripheral.
+ * configures the I2C timing parameters, and enables the I2C1 and I2C2 peripherals.
  */
 void init_i2c(void)
 {
-	/* enable i2c and __gpiob__ peripheral circuit */
+	/* enable i2c1, i2c2, and __gpiob__ peripheral circuit */
+	RCC->APBENR1 |= I2C1EN;
 	RCC->APBENR1 |= I2C2EN;
 	RCC->IOPENR |= GPIOBEN;
 
-	/* configure PB13 and PB14 to use alternate functions.*/
+	/* configure PB6, PB7, PB10, and PB11 to use alternate functions.*/
 
-	/* clear PB13 and PB14 function */
-	GPIOB->MODER &= ~((1U << 27) | (1U << 26));
-	GPIOB->MODER &= ~((1U << 29) | (1U << 28));
+	/* clear PB6, PB7, PB10, and PB11 function */
+	GPIOB->MODER &= ~((1U << 13) | (1U << 12));
+	GPIOB->MODER &= ~((1U << 15) | (1U << 14));
+	GPIOB->MODER &= ~((1U << 21) | (1U << 20));
+	GPIOB->MODER &= ~((1U << 23) | (1U << 22));
 
-	/* configure PB13 and PB14 as alternate function. */
-	GPIOB->MODER |= (1U << 27); //configure PB13 as alternate function
-	GPIOB->MODER |= (1U << 29);
+	/* configure PB6, PB7, PB10, and PB11 as alternate function. */
+	GPIOB->MODER |= (1U << 13);
+	GPIOB->MODER |= (1U << 15);
+	GPIOB->MODER |= (1U << 21);
+	GPIOB->MODER |= (1U << 23);
 
-	/* configure alternate function for PB13 and PB14*/
+	/* configure alternate function for PB10 and PB11*/
 
-	/* clear current alternate function for PB13 and PB14*/
-	GPIOB->AFR[1] &= ~((0xFU << 20) | (0xFU << 24));
+	/* clear current alternate function for PB6, PB7, PB10, and PB11*/
+	GPIOB->AFR[0] &= ~((0xFU << 24) | (0xFU << 28));
+	GPIOB->AFR[1] &= ~((0xFU << 8) | (0xFU << 12));
 
-	/* configure PB13 and PB14 to use AF6 */
+	/* configure PB6, PB7, PB10, and PB11 to use AF6 */
+	GPIOB->AFR[0] |= (I2C1_SCL | I2C1_SDA);
 	GPIOB->AFR[1] |= (I2C2_SCL | I2C2_SDA);
 
-	/* enable output open-drain for PB13 and PB14 */
+	/* enable output open-drain for PB6, PB7, PB10, and PB11 */
 	GPIOB->OTYPER |= OTYPERVAL;
 
 	/* configure GPIO port output speed */
 
-	/* clear port output speed for PB13 and PB14 */
-	GPIOB->OSPEEDR &= ~(0xFU << 26);
+	/* clear port output speed for PB6, PB7, PB10, and PB11 */
+	GPIOB->OSPEEDR &= ~((0xFU << 12) | (0xFU << 20));
 
-	/* configure PB13 and PB14 to use high speed*/
+	/* configure PB6, PB7, PB10, and PB11 to use high speed*/
 	GPIOB->OSPEEDR |= I2CSPEED;
 
 	/* enable internal pull on GPIOB_PUPDR */
 
-	/* clear bits for PB13 and PB14 */
-	GPIOB->PUPDR &= ~(0xFU << 26);
+	/* clear bits for PB6, PB7, PB10, and PB11 */
+	GPIOB->PUPDR &= ~((0xFU << 12) | (0xFU << 20));
 
-	/* set pull ups on PB13 and PB14 */
-	GPIOB->PUPDR |= ((1U << 26) | (1U << 28));
+	/* set pull ups on PB6, PB7, PB10, and PB11 */
+	GPIOB->PUPDR |= ((1U << 12) | (1U << 14) | (1U << 20) | (1U << 22));
 
 	/* configure I2C Timing */
 
 	/* ensure I2C is disabled */
+	I2C1->CR1 &= ~(1U << 0);
 	I2C2->CR1 &= ~(1U << 0);
 
-	/* configure timing for i2c2 */
+	/* configure timing for i2c1 and i2c2 */
 
 	/* clear timer setting register */
+	I2C1->TIMINGR = 0;
 	I2C2->TIMINGR = 0;
 
 	/* set PRESC */
+	I2C1->TIMINGR |= I2CPRESC;
 	I2C2->TIMINGR |= I2CPRESC;
 	/* Set SCLL AND SCLH*/
+	I2C1->TIMINGR |= (I2CSCLL | I2CSCLH);
 	I2C2->TIMINGR |= (I2CSCLL | I2CSCLH);
 	/* set SDADEL and SCLDEL */
+	I2C1->TIMINGR |= (I2CSDADEL | I2CSCLDEL);
 	I2C2->TIMINGR |= (I2CSDADEL | I2CSCLDEL);
 
-	/* Enable I2C2 peripheral */
+	/* Enable I2C1 and I2C2 peripherals */
+	I2C1->CR1 |= (1U << 0);
 	I2C2->CR1 |= (1U << 0);
 }
 
