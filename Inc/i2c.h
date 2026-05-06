@@ -21,6 +21,7 @@ extern const char* myerrarray[3];  // Declaration only
 
 void init_i2c();
 i2c_result i2cread(uint8_t slave_address, uint8_t reg_address, uint8_t* val);
+i2c_result i2cread_burst(uint8_t slave_address, uint8_t reg_address, uint8_t* data, uint32_t len);
 i2c_result i2cwrite(uint8_t slave_addr, uint8_t reg_addr, uint8_t data);
 
 #endif /* I2C_H_ */
