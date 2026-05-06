@@ -10,6 +10,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "sensor.h"
+#include "bno055.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -42,6 +43,16 @@ int main(void)
 	uart2_tx_init();
 	dma1_channel1_init();
 	printf("Hello, World!\n\r");
+
+	init_i2c();
+	printf("i2c initialized\n\r");
+
+	if (bno055_init() == i2c_success) {
+		printf("BNO055 initialized successfully\n\r");
+	} else {
+		printf("BNO055 initialization failed\n\r");
+	}
+
 	/**
 	 * In order to use GPIO (and other peripherals), we need to enable clock access
 	 * to the GPIO peripherals
@@ -56,8 +67,18 @@ int main(void)
 	GPIOA->MODER &= GPIOA_MASK;
 
 	/* GPIOC configuration */
-	GPIOC->MODER &= GPIOC_MODE; //configure c13 as output
-	GPIOC->PUPDR &= ~(3U << 26); //ensure no pull up or pull down
+	// GPIOC->MODER &= GPIOC_MODE; //configure c13 as output
+	// GPIOC->PUPDR &= ~(3U << 26); //ensure no pull up or pull down
+
+	/* --- NEW CODE --- */
+	// Set PC13 to Input Mode (00)
+	GPIOC->MODER &= ~(3U << 26);
+	// Enable Pull-up resistor (01) because the Nucleo button shorts to GND
+	GPIOC->PUPDR &= ~(3U << 26);
+	GPIOC->PUPDR |=  (1U << 26);
+
+	bno055_euler_t my_angles;
+
 
 	/* Initialize sensors */
 	init_sensors();
@@ -67,6 +88,14 @@ int main(void)
 
 	/* Loop forever */
 	for (;;) {
+
+		uint8_t num = 0;
+		i2c_result i2cresult = i2cread(0x28,3,&num);
+		if(i2cresult != i2c_success){
+			printf("i2c failed %s\n\r", i2ctostr(i2cresult));
+			while(1);
+		}
+
 		/* Fetch sensor distances */
 		left_dist = get_left_distance();
 		right_dist = get_right_distance();
@@ -84,5 +113,17 @@ int main(void)
 		} else {
 			GPIOA->ODR &= ~GPIOA5;
 		}
-	}
+
+		/* 2. Read BNO055 Data */
+		if (bno055_get_angles(&my_angles) == i2c_success) {
+			// Print the angles to the UART console
+			printf("heading: %d, roll: %d, pitch: %d\n\r",(int)my_angles.heading, (int)my_angles.roll, (int)my_angles.pitch);
+		} else {
+			printf("I2C Error!\r\n");
+		}
+
+		/* 3. Small Delay (Avoid flooding the console) */
+			for(volatile int i = 0; i < 100000; i++);
+		}
+
 }

@@ -151,6 +151,62 @@ i2c_result i2cread(uint8_t slave_address, uint8_t reg_address, uint8_t* val)
 }
 
 /**
+ * @brief Reads multiple bytes from a specified register of an I2C slave device.
+ * @param slave_address The 7-bit address of the I2C slave device.
+ * @param reg_address The register address to start reading from.
+ * @param data Pointer to store the read bytes.
+ * @param len Number of bytes to read.
+ * @return i2c_result indicating success or type of error.
+ */
+i2c_result i2cread_burst(uint8_t slave_address, uint8_t reg_address, uint8_t* data, uint32_t len)
+{
+    if (len == 0) return i2c_success;
+
+	/* Configure for write operation - send register address */
+	I2C2->CR2 = 0; // Clear CR2
+	I2C2->CR2 = (slave_address << 1) | (1U << 16) | I2C_CR2_START;
+	uint32_t timeout = I2C_TIMEOUT;
+
+	/* Wait for TXIS (Transmit register empty) */
+	while (!(I2C2->ISR & I2C_ISR_TXIS)) {
+		timeout--;
+		if (timeout == 0) return i2c_timeout;
+	}
+
+	I2C2->TXDR = reg_address; // Send Register Address
+
+	/* Wait for Transfer Complete (TC) */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_TC)) {
+		timeout--;
+		if (timeout == 0) return i2c_timeout;
+	}
+
+	/* Configure for read operation */
+	I2C2->CR2 = (slave_address << 1) | (len << 16) | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND | I2C_CR2_START;
+
+	for (uint32_t i = 0; i < len; i++) {
+        /* Wait for data ready */
+        timeout = I2C_TIMEOUT;
+        while (!(I2C2->ISR & I2C_ISR_RXNE)) {
+            timeout--;
+            if (timeout == 0) return i2c_timeout;
+        }
+        data[i] = (uint8_t)I2C2->RXDR; // Read Data
+    }
+
+	/* Wait for Stop */
+	timeout = I2C_TIMEOUT;
+	while (!(I2C2->ISR & I2C_ISR_STOPF)) {
+		timeout--;
+		if (timeout == 0) return i2c_timeout;
+	}
+	I2C2->ICR = I2C_ICR_STOPCF; // Clear Stop Flag
+
+	return i2c_success;
+}
+
+/**
  * @brief Writes a byte to a specified register of an I2C slave device.
  * @param slave_addr The 7-bit address of the I2C slave device.
  * @param reg_addr The register address to write to.
