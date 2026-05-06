@@ -12,8 +12,8 @@ INCLUDE = -I chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Include \
 STARTUP = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/gcc/startup_stm32g070xx.s
 SYSTEM = chip_headers/Drivers/CMSIS/Device/ST/STM32G0xx/Source/Templates/system_stm32g0xx.c
 
-OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o
-SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su
+OBJS = main.o syscalls.o sysmem.o startup.o system.o i2c.o uart.o gpio.o
+SUS = syscalls.su sysmem.su system.su main.su i2c.su uart.su gpio.su
 TARGET = micromouse.elf
 
 .PHONY: all clean flash
@@ -25,6 +25,8 @@ $(TARGET): $(OBJS)
 
 main.o: Src/main.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/main.c -o main.o
+gpio.o: Src/driver/gpio.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c Src/driver/gpio.c -o gpio.o
 syscalls.o: Src/syscalls.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c Src/syscalls.c -o syscalls.o
 sysmem.o: Src/sysmem.c
