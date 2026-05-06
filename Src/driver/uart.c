@@ -60,9 +60,9 @@ void uart2_write(int ch)
 
 /**
  * @brief Initialize DMA1 Channel 1 for USART2 TX DMA transfers
- * This function configures DMA1 Channel 1 to handle memory-to-peripheral 
- * transfers for USART2 TX. It sets up the DMAMUX to route USART2 TX requests 
- * to Channel 1, configures the DMA channel for memory increment mode, 
+ * This function configures DMA1 Channel 1 to handle memory-to-peripheral
+ * transfers for USART2 TX. It sets up the DMAMUX to route USART2 TX requests
+ * to Channel 1, configures the DMA channel for memory increment mode,
  * memory-to-peripheral direction, and enables transfer
  */
 void dma1_channel1_init(void)
@@ -80,7 +80,7 @@ void dma1_channel1_init(void)
      */
     DMA1_Channel1->CCR &= ~DMA_CR_EN; // Ensure channel is disabled
     DMA1_Channel1->CCR = DMA_MEM_INC | DMA_DIR_MEM_TO_PERIPH | DMA_CR_TCIE;
-    
+
     /* Set the peripheral address once (USART2 TDR) */
     DMA1_Channel1->CPAR = (uint32_t)&USART2->TDR;
 
